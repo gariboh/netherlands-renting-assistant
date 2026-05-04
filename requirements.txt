@@ -1,4 +1,4 @@
-parariusScraper @ git+https://github.com/CliffLin/parariusScraper@main
+pararius-scraper @ git+https://github.com/CliffLin/parariusScraper@main
 funda-scraper @ git+https://github.com/CliffLin/funda-scraper@main
 gspread>=6.0
 google-auth>=2.0
