@@ -1,51 +1,38 @@
-import json
-import requests
-
+import os
 from funda import Funda
 from parariusScraper import Pararius
+from notifier import send_email
+from sheets_db import load_seen_ids, save_listing
 
-AREA = "amsterdam"
-PRICE = [2000, 3000]
-DATA = 'data.json'
+PRICE = [1100, 1400]
 HEADERS = {}
 
-def loaddata():
-    with open(DATA) as f:
-        try:
-            return json.load(f)
-        except:
-            return dict()
-
-def savedata(data):
-    with open(DATA, "w+") as f:
-        f.write(json.dumps(data))
-
-
-def process(localdata, houses, callback):
-    for house in houses:
-        if not localdata.get(str(house.id)):
-            localdata[str(house.id)] = True
-        else:
-            continue
-
-        try:
-            callback(house)
-        finally:
-            savedata(localdata)
-
-def sendToTelegram(house):
-    CHATID = ''
-    TOKEN = ''
-    URL = 'https://api.telegram.org/bot%s/sendMessage' % TOKEN
-
-    body = {'parse_mode': 'Markdown', 'chat_id': CHATID, 'text': '**%s**\n€%s/%s\n%s' % (house.address, house.price, house.living_area, house.URL)}
-    requests.post(URL, json=body)
+CITIES = [
+    {"funda": "amsterdam",  "pararius": "amsterdam",  "display": "Amsterdam"},
+    {"funda": "den-haag",   "pararius": "den-haag",   "display": "Den Haag"},
+    {"funda": "rotterdam",  "pararius": "rotterdam",  "display": "Rotterdam"},
+]
 
 if __name__ == '__main__':
-    svcs = [Funda, Pararius]
-    for idx, svc in enumerate(svcs):
-        svcs[idx] = svc(AREA, PRICE, header=HEADERS)
+    seen_ids = load_seen_ids()
 
-    data = loaddata()
-    for svc in svcs:
-        process(data, svc.Run(), sendToTelegram) 
+    for city in CITIES:
+        for SvcClass in [Funda, Pararius]:
+            try:
+                scraper = SvcClass(city["funda"] if SvcClass is Funda else city["pararius"], PRICE, header=HEADERS)
+                houses = scraper.Run()
+            except Exception as e:
+                print(f"Scraper error ({SvcClass.__name__}, {city['display']}): {e}")
+                continue
+
+            for house in houses:
+                if str(house.id) in seen_ids:
+                    continue
+                house.city = city["display"]
+                try:
+                    send_email(house)
+                    save_listing(house)
+                    seen_ids.add(str(house.id))
+                    print(f"Notified: {house.address} in {house.city} €{house.price}")
+                except Exception as e:
+                    print(f"Error processing {house.id}: {e}")
