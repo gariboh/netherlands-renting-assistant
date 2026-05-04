@@ -24,12 +24,16 @@ class Pararius(RentProviderInterface):
             url = base_url if page == 1 else f"{base_url}/page-{page}"
             try:
                 resp = requests.get(url, headers=self._header, timeout=15)
+                print(f"  [Pararius] HTTP {resp.status_code} {url}", flush=True)
                 if resp.status_code != 200:
+                    print(f"  [Pararius] Response snippet: {resp.text[:300]}", flush=True)
                     break
                 soup = BeautifulSoup(resp.text, "lxml")
 
                 listings = soup.find_all("li", class_="search-list__item search-list__item--listing")
+                print(f"  [Pararius] Found {len(listings)} listing elements on page {page}", flush=True)
                 if not listings:
+                    print(f"  [Pararius] Page snippet: {resp.text[:500]}", flush=True)
                     break
 
                 for item in listings:
@@ -43,7 +47,8 @@ class Pararius(RentProviderInterface):
                         listing_id = re.search(r'[a-f0-9-]{20,}', link)
                         listing_id = listing_id.group() if listing_id else link
                         results.append(House(listing_id, link, name, rent, area))
-                    except Exception:
+                    except Exception as e:
+                        print(f"  [Pararius] Parse error: {e}", flush=True)
                         continue
 
                 pagination = soup.find("ul", class_="pagination__list")
@@ -54,7 +59,7 @@ class Pararius(RentProviderInterface):
                 page += 1
 
             except Exception as e:
-                print(f"Pararius error p{page}: {e}")
+                print(f"  [Pararius] Request error p{page}: {e}", flush=True)
                 break
 
         return results
