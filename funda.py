@@ -1,6 +1,6 @@
 import re
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
-from playwright_stealth import stealth_sync
+from playwright_stealth import Stealth
 from bs4 import BeautifulSoup
 from model import House
 from interface import RentProviderInterface
@@ -32,7 +32,7 @@ class Funda(RentProviderInterface):
                 viewport={"width": 1280, "height": 900},
             )
             pw_page = ctx.new_page()
-            stealth_sync(pw_page)
+            Stealth().apply_stealth_sync(pw_page)
 
             for page_num in range(1, 4):
                 url = (
