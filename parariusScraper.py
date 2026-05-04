@@ -1,6 +1,6 @@
 import re
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
-from playwright_stealth import stealth_sync
+from playwright_stealth import Stealth
 from bs4 import BeautifulSoup
 from model import House
 from interface import RentProviderInterface
@@ -34,7 +34,7 @@ class Pararius(RentProviderInterface):
                 viewport={"width": 1280, "height": 900},
             )
             pw_page = ctx.new_page()
-            stealth_sync(pw_page)
+            Stealth().apply_stealth_sync(pw_page)
 
             while True:
                 url = base_url if page_num == 1 else f"{base_url}/page-{page_num}"
