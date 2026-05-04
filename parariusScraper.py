@@ -1,13 +1,11 @@
 import re
-import cloudscraper
+from curl_cffi import requests as cf_requests
 from bs4 import BeautifulSoup
 from model import House
 from interface import RentProviderInterface
 
-# Shared scraper so all city requests reuse the same session/cookies
-_scraper = cloudscraper.create_scraper(
-    browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False}
-)
+# Shared session so all city requests reuse the same TLS fingerprint/cookies
+_session = cf_requests.Session(impersonate="chrome110")
 
 class Pararius(RentProviderInterface):
     BASE = "https://www.pararius.com"
@@ -25,7 +23,7 @@ class Pararius(RentProviderInterface):
         while True:
             url = base_url if page == 1 else f"{base_url}/page-{page}"
             try:
-                resp = _scraper.get(url, timeout=30)
+                resp = _session.get(url, timeout=30)
                 print(f"  [Pararius] HTTP {resp.status_code} {url}", flush=True)
                 if resp.status_code != 200:
                     print(f"  [Pararius] Blocked: {resp.text[:200]}", flush=True)
@@ -40,7 +38,6 @@ class Pararius(RentProviderInterface):
 
                 for item in items:
                     try:
-                        # Flexible link finding — handles changed HTML structure
                         link_el = (
                             item.find("a", href=re.compile(r'/(appartement|woning|kamer|studio)-te-huur/'))
                             or item.find("a", href=re.compile(r'^/[a-z]+-te-huur/'))
@@ -56,7 +53,7 @@ class Pararius(RentProviderInterface):
                         price_text = price_el.get_text(strip=True) if price_el else ""
                         price_match = re.search(r'[\d.,]{3,}', price_text.replace(".", "").replace(",", ""))
                         if not price_match:
-                            m = re.search(r'€\s*([\d.]+)', price_text)
+                            m = re.search(r'EUR\s*([\d.]+)', price_text)
                             if not m:
                                 continue
                             rent = int(m.group(1).replace(".", ""))
@@ -64,8 +61,8 @@ class Pararius(RentProviderInterface):
                             rent = int(price_match.group().replace(".", "").replace(",", ""))
 
                         area_text = item.get_text()
-                        area_match = re.search(r'(\d+)\s*m²', area_text)
-                        area = f"{area_match.group(1)} m²" if area_match else ""
+                        area_match = re.search(r'(\d+)\s*m2', area_text)
+                        area = f"{area_match.group(1)} m2" if area_match else ""
 
                         listing_id = link_el["href"].rstrip("/").split("/")[-1]
                         results.append(House(listing_id, link, name, rent, area))
