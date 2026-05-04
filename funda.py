@@ -89,7 +89,7 @@ class Funda(RentProviderInterface):
                                 break
                             text = container.get_text(" ", strip=True)
                             price_match = re.search(
-                                r'EUR\s*([\d.]+)\s*/mnd', text, re.IGNORECASE
+                                r'€\s*([\d.]+)\s*/mnd', text, re.IGNORECASE
                             )
                             if price_match:
                                 break
