@@ -26,24 +26,24 @@ class Funda(RentProviderInterface):
             url = f"{self.BASE}/huur/{city_slug}/" if page == 1 else f"{self.BASE}/huur/{city_slug}/p{page}/"
             try:
                 resp = requests.get(url, headers=self._header, timeout=15)
+                print(f"  [Funda] HTTP {resp.status_code} {url}", flush=True)
                 if resp.status_code != 200:
+                    print(f"  [Funda] Response snippet: {resp.text[:300]}", flush=True)
                     break
                 soup = BeautifulSoup(resp.text, "lxml")
 
-                # Find listing links — try both old and new selector
                 anchors = soup.find_all("a", attrs={"data-object-url-tracking": "resultlist"})
                 if not anchors:
                     anchors = [
                         a for a in soup.find_all("a", href=True)
                         if re.match(r'^/huur/[^/]+/(appartement|huis|studio|kamer)-\d+', a.get("href", ""))
                     ]
+                print(f"  [Funda] Found {len(anchors)} listing links on page {page}", flush=True)
                 if not anchors:
+                    print(f"  [Funda] Page title: {soup.title.string if soup.title else 'none'}", flush=True)
                     break
 
                 hrefs = list({a["href"] for a in anchors if a.get("href")})
-                if not hrefs:
-                    break
-
                 for href in hrefs:
                     if href in seen:
                         continue
@@ -52,32 +52,25 @@ class Funda(RentProviderInterface):
                         full_url = self.BASE + href
                         r2 = requests.get(full_url, headers=self._header, timeout=15)
                         soup2 = BeautifulSoup(r2.text, "lxml")
-
-                        # Price: find "€ X.XXX" pattern
                         price_match = re.search(r'€\s*([\d.,]+)\s*(?:/mnd|per maand)', soup2.get_text())
                         if not price_match:
                             continue
                         rent = int(price_match.group(1).replace(".", "").replace(",", ""))
                         if not self._isPriceMatched(rent):
                             continue
-
-                        # Address from page title or h1
                         addr_el = soup2.find("h1") or soup2.find("title")
                         address = addr_el.get_text(strip=True).split("|")[0].strip() if addr_el else href
-
-                        # Area
                         area_match = re.search(r'(\d+)\s*m²', soup2.get_text())
                         area = f"{area_match.group(1)} m²" if area_match else ""
-
                         listing_id = re.search(r'-(\d{8,})-', href)
                         listing_id = listing_id.group(1) if listing_id else href
-
                         results.append(House(listing_id, full_url, address, rent, area))
-                    except Exception:
+                    except Exception as e:
+                        print(f"  [Funda] Listing error {href}: {e}", flush=True)
                         continue
 
             except Exception as e:
-                print(f"Funda error p{page}: {e}")
+                print(f"  [Funda] Page error p{page}: {e}", flush=True)
                 break
 
         return results
