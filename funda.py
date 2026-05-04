@@ -1,5 +1,6 @@
 import re
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
+from playwright_stealth import stealth_sync
 from bs4 import BeautifulSoup
 from model import House
 from interface import RentProviderInterface
@@ -19,11 +20,7 @@ class Funda(RentProviderInterface):
         with sync_playwright() as pw:
             browser = pw.chromium.launch(
                 headless=True,
-                args=[
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-blink-features=AutomationControlled",
-                ],
+                args=["--no-sandbox", "--disable-dev-shm-usage"],
             )
             ctx = browser.new_context(
                 user_agent=(
@@ -34,10 +31,8 @@ class Funda(RentProviderInterface):
                 locale="nl-NL",
                 viewport={"width": 1280, "height": 900},
             )
-            ctx.add_init_script(
-                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-            )
             pw_page = ctx.new_page()
+            stealth_sync(pw_page)
 
             for page_num in range(1, 4):
                 url = (
@@ -49,7 +44,7 @@ class Funda(RentProviderInterface):
                 try:
                     pw_page.goto(url, wait_until="load", timeout=45000)
                     if "bijna" in (pw_page.title() or "").lower():
-                        print("  [Funda] Challenge page detected, waiting for redirect...", flush=True)
+                        print("  [Funda] Challenge page, waiting for resolve...", flush=True)
                         pw_page.wait_for_timeout(8000)
                 except PWTimeout:
                     print(f"  [Funda] Timeout on page {page_num}", flush=True)
