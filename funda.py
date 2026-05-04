@@ -19,7 +19,11 @@ class Funda(RentProviderInterface):
         with sync_playwright() as pw:
             browser = pw.chromium.launch(
                 headless=True,
-                args=["--no-sandbox", "--disable-dev-shm-usage"],
+                args=[
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-blink-features=AutomationControlled",
+                ],
             )
             ctx = browser.new_context(
                 user_agent=(
@@ -29,6 +33,9 @@ class Funda(RentProviderInterface):
                 ),
                 locale="nl-NL",
                 viewport={"width": 1280, "height": 900},
+            )
+            ctx.add_init_script(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
             )
             pw_page = ctx.new_page()
 
@@ -40,8 +47,10 @@ class Funda(RentProviderInterface):
                 )
                 print(f"  [Funda] Fetching {url}", flush=True)
                 try:
-                    pw_page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                    pw_page.wait_for_timeout(3000)
+                    pw_page.goto(url, wait_until="load", timeout=45000)
+                    if "bijna" in (pw_page.title() or "").lower():
+                        print("  [Funda] Challenge page detected, waiting for redirect...", flush=True)
+                        pw_page.wait_for_timeout(8000)
                 except PWTimeout:
                     print(f"  [Funda] Timeout on page {page_num}", flush=True)
 
@@ -80,7 +89,7 @@ class Funda(RentProviderInterface):
                                 break
                             text = container.get_text(" ", strip=True)
                             price_match = re.search(
-                                r'€\s*([\d.]+)\s*/mnd', text, re.IGNORECASE
+                                r'EUR\s*([\d.]+)\s*/mnd', text, re.IGNORECASE
                             )
                             if price_match:
                                 break
@@ -94,8 +103,8 @@ class Funda(RentProviderInterface):
                         parts = [p for p in href.split("/") if p]
                         addr_text = parts[-1] if parts else href
                         container_text = container.get_text(" ") if container else ""
-                        area_match = re.search(r'(\d+)\s*m²', container_text)
-                        area = f"{area_match.group(1)} m²" if area_match else ""
+                        area_match = re.search(r'(\d+)\s*m2', container_text)
+                        area = f"{area_match.group(1)} m2" if area_match else ""
 
                         results.append(House(listing_id, full_url, addr_text, rent, area))
                     except Exception as e:
