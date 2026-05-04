@@ -1,10 +1,8 @@
 import re
-import requests
+import cloudscraper
 from bs4 import BeautifulSoup
 from model import House
 from interface import RentProviderInterface
-
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
 class Pararius(RentProviderInterface):
     BASE = "https://www.pararius.com/apartments"
@@ -13,7 +11,7 @@ class Pararius(RentProviderInterface):
         super().__init__(city, price)
         self._min_price = price[0]
         self._max_price = price[1]
-        self._header = {"User-Agent": UA, **header}
+        self._scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False})
 
     def Run(self):
         base_url = f"{self.BASE}/{self._city}/{self._min_price}-{self._max_price}"
@@ -23,7 +21,7 @@ class Pararius(RentProviderInterface):
         while True:
             url = base_url if page == 1 else f"{base_url}/page-{page}"
             try:
-                resp = requests.get(url, headers=self._header, timeout=15)
+                resp = self._scraper.get(url, timeout=30)
                 print(f"  [Pararius] HTTP {resp.status_code} {url}", flush=True)
                 if resp.status_code != 200:
                     print(f"  [Pararius] Response snippet: {resp.text[:300]}", flush=True)
@@ -33,7 +31,7 @@ class Pararius(RentProviderInterface):
                 listings = soup.find_all("li", class_="search-list__item search-list__item--listing")
                 print(f"  [Pararius] Found {len(listings)} listing elements on page {page}", flush=True)
                 if not listings:
-                    print(f"  [Pararius] Page snippet: {resp.text[:500]}", flush=True)
+                    print(f"  [Pararius] Page snippet: {resp.text[:400]}", flush=True)
                     break
 
                 for item in listings:
@@ -52,9 +50,7 @@ class Pararius(RentProviderInterface):
                         continue
 
                 pagination = soup.find("ul", class_="pagination__list")
-                if not pagination:
-                    break
-                if not pagination.find("li", class_="pagination__item--next"):
+                if not pagination or not pagination.find("li", class_="pagination__item--next"):
                     break
                 page += 1
 
