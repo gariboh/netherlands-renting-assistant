@@ -3,16 +3,19 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+TO = "harijs.rozensteins@scandiweb.com"
+CC = "p.martinovs@gmail.com"
+
 def send_email(house):
     sender = os.environ["EMAIL_SENDER"]
     password = os.environ["EMAIL_PASSWORD"]
-    recipient = os.environ["EMAIL_RECIPIENT"]
     city = getattr(house, "city", "")
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"New rental in {city}: {house.address} — €{house.price}/mo"
     msg["From"] = sender
-    msg["To"] = recipient
+    msg["To"] = TO
+    msg["Cc"] = CC
 
     html = f"""
     <h2>New rental listing found!</h2>
@@ -28,4 +31,4 @@ def send_email(house):
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
         smtp.login(sender, password)
-        smtp.sendmail(sender, recipient, msg.as_string())
+        smtp.sendmail(sender, [TO, CC], msg.as_string())
